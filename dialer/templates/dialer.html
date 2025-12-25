@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Dialer</title>
+    <meta charset="utf-8">
+  </head>
+  <body>
+    <h1>Click the Button</h1>
+    <button id="callButton">Send Call Request</button>
+
+	<!-- Inject CSRF token into a JS variable --> <script> const csrftoken = "{{ csrf_token }}"; // Django will replace this with the real token </script>
+
+    <script>
+      // Helper function to read CSRF token from cookie
+      function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+          const cookies = document.cookie.split(';');
+          for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            // Does this cookie string begin with the name we want?
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      }
+    
+
+      document.getElementById("callButton").addEventListener("click", function() {
+        fetch("http://172.25.108.14:8000/api/fusionpbx/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken   // send the real CSRF token
+          },
+          body: JSON.stringify({
+            endpoint: "6000",
+            destination: "8000",
+            action: "originate",
+            token: "BqjUiAKGUP7kZTUYj13X9pvxMXULD0ev"
+          })
+        })
+        .then(response => {
+          // Try to parse JSON if available, otherwise fallback to text
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.indexOf("application/json") !== -1) {
+            return response.json();
+          } else {
+            return response.text();
+          }
+        })
+        .then(data => {
+          console.log("Response:", data);
+          alert("Request sent successfully!");
+        })
+        .catch(error => {
+          console.error("Error:", error);
+          alert("Request failed!");
+        });
+      });
+    </script>
+  </body>
+</html>

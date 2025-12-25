@@ -22,4 +22,5 @@ urlpatterns = [
 	path('api/', include([
 		path('fusionpbx/', include('fusionpbxapi.urls')),
 	])),
+	path('', include('dialer.urls')),
 ]

@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'd4dialer',
     'fusionpbxapi',
+     'dialer',
 ]
 
 MIDDLEWARE = [
