@@ -1,66 +1,52 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Dialer</title>
+    <title>Phonebook</title>
     <meta charset="utf-8">
+    <!-- Bootstrap CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   </head>
   <body>
-    <h1>Click the Button</h1>
-    <button id="callButton">Send Call Request</button>
-
-	<!-- Inject CSRF token into a JS variable --> <script> const csrftoken = "{{ csrf_token }}"; // Django will replace this with the real token </script>
-
+    <div class="container mt-5">
+      <div class="row border rounded shadow-sm">
+        <div class="col-md-4 p-4 border-end d-flex flex-column justify-content-center align-items-start">
+          <h2 class="mb-3">Add Phone Number</h2>
+          <input type="text" id="phoneInput" class="form-control mb-3" placeholder="Enter phone number" />
+          <button id="addButton" class="btn btn-primary">Add</button>
+        </div>
+        <div class="col-md-8 p-4 d-flex flex-column align-items-start">
+          <h2 class="mb-3">Phone Numbers</h2>
+          <ul id="phoneList" class="list-group w-100"></ul>
+        </div>
+      </div>
+    </div>
     <script>
-      // Helper function to read CSRF token from cookie
-      function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-          const cookies = document.cookie.split(';');
-          for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            // Does this cookie string begin with the name we want?
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-              break;
-            }
-          }
-        }
-        return cookieValue;
-      }
-    
+      const phoneInput = document.getElementById('phoneInput');
+      const addButton = document.getElementById('addButton');
+      const phoneList = document.getElementById('phoneList');
+      const numbers = [];
 
-      document.getElementById("callButton").addEventListener("click", function() {
-        fetch("http://172.25.108.14:8000/api/fusionpbx/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": csrftoken   // send the real CSRF token
-          },
-          body: JSON.stringify({
-            endpoint: "6000",
-            destination: "8000",
-            action: "originate",
-            token: "BqjUiAKGUP7kZTUYj13X9pvxMXULD0ev"
-          })
-        })
-        .then(response => {
-          // Try to parse JSON if available, otherwise fallback to text
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.indexOf("application/json") !== -1) {
-            return response.json();
-          } else {
-            return response.text();
-          }
-        })
-        .then(data => {
-          console.log("Response:", data);
-          alert("Request sent successfully!");
-        })
-        .catch(error => {
-          console.error("Error:", error);
-          alert("Request failed!");
-        });
+      addButton.addEventListener('click', function() {
+        const value = phoneInput.value.trim();
+        if (value) {
+          numbers.push(value);
+          renderList();
+          phoneInput.value = '';
+          phoneInput.focus();
+        }
       });
+
+      function renderList() {
+        phoneList.innerHTML = '';
+        numbers.forEach(num => {
+          const li = document.createElement('li');
+          li.textContent = num;
+          li.className = 'list-group-item';
+          phoneList.appendChild(li);
+        });
+      }
     </script>
+    <!-- Bootstrap JS (optional, for some components) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>
