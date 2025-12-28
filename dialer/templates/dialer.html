@@ -1,103 +1,312 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Phonebook</title>
+    <h1 class="fw-bold" id="d4dialerTitle" style="cursor:pointer;">d4Dialer</h1>
     <meta charset="utf-8">
-    {% csrf_token %}
-    <!-- Bootstrap CSS CDN -->
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   </head>
   <body>
     <div class="container mt-5">
+      <div class="row mb-3 align-items-center">        
+        <div class="col-md-6 d-flex justify-content-end">
+          <form id="dialerForm" method="post" action="{% url 'dialer' %}" class="d-flex align-items-center m-0">
+            {% csrf_token %}
+            <input type="hidden" name="numbers" id="numbersInput" />
+            <input type="hidden" name="action" id="actionInput" value="save" />
+            <input type="hidden" name="campaign_uuid" id="campaignUuiInput" />
+            <button id="saveButton" class="btn btn-success px-4 me-2" type="submit">Save</button>
+          </form>
+          <button id="deleteButton" class="btn btn-danger">Delete</button>
+        </div>
+      </div>
       <div class="row border rounded shadow-sm">
         <div class="col-md-4 p-4 border-end d-flex flex-column align-items-start" style="justify-content: flex-start;">
-          <h2 class="mb-3">Add Phone Number</h2>
+          <h2 class="mb-3">Campaigns</h2>
+          <ul class="list-group w-100 mb-3" id="campaignList">
+            {% for campaign in campaigns %}
+              <li class="list-group-item d-flex align-items-center campaign-item" data-campaign-id="{{ campaign.id }}">
+                <input type="checkbox" class="form-check-input me-2 campaign-checkbox" data-campaign-id="{{ campaign.id }}">
+                <span>{{ campaign.campaign_name }}</span>
+              </li>
+            {% empty %}
+              <li class="list-group-item text-muted">No campaigns found.</li>
+            {% endfor %}
+          </ul>
+        </div>      
+        <div class="col-md-4 p-4 d-flex flex-column align-items-start">
+          <h2 class="mb-3">Phone Numbers</h2>
+          <div id="selectedCampaignUui" class="mb-2 text-primary fw-bold" style="font-size: small;"></div>
           <div class="input-group mb-3">
             <input type="text" id="phoneInput" class="form-control" placeholder="Enter phone number" />
             <button id="addButton" class="btn btn-primary">Add</button>
           </div>
-        </div>
-        <div class="col-md-8 p-4 d-flex flex-column align-items-start">
-          <h2 class="mb-3">Phone Numbers</h2>
-          <ul id="phoneList" class="list-group w-100"></ul>
+          <ul id="phoneList" class="list-group w-100"></ul>          
         </div>
       </div>
-      <div class="d-flex justify-content-center mt-4">
-        <button id="saveButton" class="btn btn-success px-5">Save</button>
+      <div class="row border rounded shadow-sm mt-4">
+        <div class="col-12 p-4">
+          <h2 class="mb-3">Settings</h2>
+          <!-- Add your campaign settings form or content here -->
+          <p class="text-muted">Configure campaign settings here.</p>
+
+          <!-- IVR dropdown -->
+          <div class="form-group mt-3">
+            <label for="ivr">IVR</label>
+            <select class="form-control" id="ivr" name="ivr">
+              <option value="">-- Select IVR Option --</option>
+              {% for ivr_name in ivr_menu_names %} 
+                <option value="{{ ivr_name }}">{{ ivr_name }}</option> 
+              {% endfor %}
+            </select>
+          </div>
+        </div>
       </div>
+
     </div>
     <script>
       const phoneInput = document.getElementById('phoneInput');
       const addButton = document.getElementById('addButton');
       const phoneList = document.getElementById('phoneList');
+      const numbersInput = document.getElementById('numbersInput');
+      const dialerForm = document.getElementById('dialerForm');
       const numbers = [];
+      const deleteButton = document.getElementById('deleteButton');
+      const campaignCheckboxes = document.querySelectorAll('.campaign-checkbox');
+      const saveButton = document.getElementById('saveButton');
+      const PAGE_SIZE = 10;
+      let currentPage = 1;
+      let newNumbersAdded = false;
+      let selectedCampaignUui = "";
+      const removedNumbers = [];
 
-      function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-          const cookies = document.cookie.split(';');
-          for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-              break;
-            }
-          }
-        }
-        return cookieValue;
+      
+      saveButton.style.display = 'none';
+      deleteButton.style.display = 'none';
+
+      document.getElementById('d4dialerTitle').addEventListener('click', function() {
+        window.location.href = "{% url 'dialer' %}";
+      });
+
+      function updateSaveButtonVisibility() {
+        saveButton.style.display = (numbers.length > 0 && newNumbersAdded) ? 'inline-block' : 'none';
       }
-      const csrftoken = getCookie('csrftoken');
+
+      deleteButton.addEventListener('click', function() {
+        // Get all checked checkboxes
+        const checked = Array.from(document.querySelectorAll('.campaign-checkbox:checked'));
+        if (checked.length === 0) {
+          alert('Please select at least one campaign to delete.');
+          return;
+        }
+        if (!confirm('Are you sure you want to delete the selected campaign(s)?')) {
+          return;
+        }
+
+        // Collect campaign IDs to delete
+        const campaignIds = checked.map(cb => cb.getAttribute('data-campaign-id'));
+
+        // Create a form and submit it to Django for deletion
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = '{% url "dialer" %}';
+
+        // Add CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        // Add action
+        const actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = 'delete';
+        form.appendChild(actionInput);
+
+        // Add campaign IDs
+        campaignIds.forEach(id => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'campaign_ids';
+          input.value = id;
+          form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+      });
+
+      campaignCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+          const anyChecked = Array.from(campaignCheckboxes).some(cb => cb.checked);
+          deleteButton.style.display = anyChecked ? 'inline-block' : 'none';
+        });
+      });
+
+      const campaignLeads = {
+        {% for campaign in campaigns %}
+          "{{ campaign.id }}": [
+            {% for lead in campaign.leads.all %}
+              "{{ lead.phone_number }}"{% if not forloop.last %},{% endif %}
+            {% endfor %}
+          ]{% if not forloop.last %},{% endif %}
+        {% endfor %}
+      };
 
       addButton.addEventListener('click', function() {
         const value = phoneInput.value.trim();
         if (value) {
-          numbers.push(value);
-          renderList();
+          const currentNumbers = [];
+          numbers.forEach(num => currentNumbers.push(num));
+          currentNumbers.push(value);
+          numbers.length = 0;
+          numbers.push(...currentNumbers);
+          newNumbersAdded = true;
+          renderList(currentPage);
           phoneInput.value = '';
           phoneInput.focus();
+          updateSaveButtonVisibility();
         }
       });
 
-      function renderList() {
+      function renderList(page = 1) {
         phoneList.innerHTML = '';
-        numbers.forEach(num => {
-          const li = document.createElement('li');
-          li.textContent = num;
-          li.className = 'list-group-item';
-          phoneList.appendChild(li);
-        });
-      }
-
-      saveButton.addEventListener('click', function() {
-        // Example: send the first phone number as destination
+        const totalPages = Math.ceil(numbers.length / PAGE_SIZE);
         if (numbers.length === 0) {
-          alert('Please add at least one phone number.');
+          updateSaveButtonVisibility();
+          renderPagination(1, 1);
           return;
         }
-        fetch('http://172.25.108.14:8000/api/fusionpbx/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrftoken
-          },
-          body: JSON.stringify({
-            endpoint: "6000",
-            destination: "8000",
-            action: "originate",
-            token: "BqjUiAKGUP7kZTUYj13X9pvxMXULD0ev"
-          })
-        })
-        .then(response => {
-          if (response.ok) {
-            alert('Call request sent!');
-          } else {
-            alert('Failed to send call request.');
+        // Clamp page
+        if (page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+
+        currentPage = page;
+        const start = (page - 1) * PAGE_SIZE;
+        const end = start + PAGE_SIZE;
+        const pageNumbers = numbers.slice(start, end);
+
+        pageNumbers.forEach((num, idx) => {
+          const li = document.createElement('li');
+          li.textContent = num;
+          li.className = 'list-group-item d-flex justify-content-between align-items-center';
+          li.style.fontSize = 'small';
+
+          // Create delete icon button
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'btn btn-link btn-sm text-danger p-0 ms-2';
+          delBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5.5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6zm3 .5a.5.5 0 0 1 .5-.5.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1 0-2h3.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1H14a1 1 0 0 1 1 1zm-3-1a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 0-.5.5V4h3V2zm-7 2v9a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4H4z"/></svg>';
+
+          delBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            li.style.textDecoration = 'line-through';
+            li.style.color = '#888';
+            if (selectedCampaignUui && !removedNumbers.includes(num)) {
+              // If a campaign is selected, add to removedNumbers
+              removedNumbers.push(num);
+            } else if (!selectedCampaignUui) {
+              // If no campaign is selected, remove the number from the numbers array
+              const idxInNumbers = numbers.indexOf(num);
+              if (idxInNumbers !== -1) {
+                numbers.splice(idxInNumbers, 1);
+                renderList(currentPage); // Re-render the list to reflect removal
+                return; // Exit so we don't show strikethrough for removed item
+              }
+            }
+            newNumbersAdded = true;
+            updateSaveButtonVisibility();
+          });
+
+          // Add number text and delete button to li
+          li.textContent = num;
+          li.appendChild(delBtn);
+
+          phoneList.appendChild(li);
+        });
+
+        updateSaveButtonVisibility();
+        renderPagination(page, totalPages);
+      }
+
+      function renderPagination(page, totalPages) {
+        // Remove old pagination if exists
+        let oldPagination = document.getElementById('phoneListPagination');
+        if (oldPagination) oldPagination.remove();
+
+        if (totalPages <= 1) return;
+
+        const pagination = document.createElement('div');
+        pagination.id = 'phoneListPagination';
+        pagination.className = 'mt-2';
+
+        for (let i = 1; i <= totalPages; i++) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn btn-outline-primary btn-sm mx-1';
+          btn.textContent = i;
+          if (i === page) {
+            btn.classList.add('active');
           }
-        })
-        .catch(() => {
-          alert('Error sending request.');
+          btn.addEventListener('click', function() {
+            renderList(i);
+          });
+          pagination.appendChild(btn);
+        }
+        // Insert after phoneList
+        phoneList.parentNode.insertBefore(pagination, phoneList.nextSibling);
+      }      
+
+      dialerForm.addEventListener('submit', function(e) {
+        if (numbers.length === 0) {
+          alert('Please add at least one phone number.');
+          e.preventDefault();
+          return;
+        }
+        numbersInput.value = JSON.stringify(numbers);
+        removedNumbersInput.value = JSON.stringify(removedNumbers);
+        document.getElementById('campaignUuiInput').value = selectedCampaignUui;
+        // The form will submit normally to Django
+      });
+
+      document.querySelectorAll('.campaign-item').forEach(item => {
+        item.addEventListener('click', function() {
+          const campaignId = this.getAttribute('data-campaign-id');
+          const campaignNumbers = campaignLeads[campaignId] || [];
+          numbers.length = 0;
+          numbers.push(...campaignNumbers);
+          newNumbersAdded = false;
+          // Show campaign UUID above phone list and set selectedCampaignUui
+          const selectedCampaignUuiDiv = document.getElementById('selectedCampaignUui');
+          selectedCampaignUuiDiv.textContent = '';
+          {% for campaign in campaigns %}
+            if (campaignId == "{{ campaign.id }}") {
+              selectedCampaignUuiDiv.textContent = "{{ campaign.campaign_uuid }}";
+              selectedCampaignUui = "{{ campaign.campaign_uuid }}";
+            }
+          {% endfor %}
+          renderList(1);
+          updateSaveButtonVisibility();
         });
       });
+
+      let removedNumbersInput = document.getElementById('removedNumbersInput');
+        if (!removedNumbersInput) {
+          removedNumbersInput = document.createElement('input');
+          removedNumbersInput.type = 'hidden';
+          removedNumbersInput.name = 'removed_numbers';
+          removedNumbersInput.id = 'removedNumbersInput';
+          dialerForm.appendChild(removedNumbersInput);
+        }
+
+      // Initial render
+      renderList(1);
+
+      // Initial check on page load
+      updateSaveButtonVisibility();
 
     </script>
     <!-- Bootstrap JS (optional, for some components) -->

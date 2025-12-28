@@ -1,3 +1,15 @@
 from django.db import models
 
-# Create your models here.
+class Campaign(models.Model):
+    campaign_uuid = models.CharField(max_length=255, unique=True)
+    campaign_name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.campaign_name
+
+class CampaignLead(models.Model):
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='leads')
+    phone_number = models.CharField(max_length=32)
+
+    def __str__(self):
+        return f"{self.campaign.campaign_name} - {self.phone_number}"
