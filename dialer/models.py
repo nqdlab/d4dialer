@@ -3,6 +3,7 @@ from django.db import models
 class Campaign(models.Model):
     campaign_uuid = models.CharField(max_length=255, unique=True)
     campaign_name = models.CharField(max_length=255)
+    campaign_ivr_menu = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
         return self.campaign_name

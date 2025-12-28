@@ -19,6 +19,7 @@ class DialerHome(View):
         action = request.POST.get('action', '')
         numbers_json = request.POST.get('numbers', '[]')
         campaign_uuid = request.POST.get('campaign_uuid', '')
+        campaign_ivr_menu = request.POST.get('campaign_ivr_menu', '')
         removed_numbers_json = request.POST.get('removed_numbers', '[]')
 
         try:
@@ -38,7 +39,8 @@ class DialerHome(View):
                 campaign_name = f"Campaign {campaign_uuid[:8]}"
                 campaign = Campaign.objects.create(
                     campaign_uuid=campaign_uuid,                    
-                    campaign_name=campaign_name
+                    campaign_name=campaign_name,
+                    campaign_ivr_menu=campaign_ivr_menu
                 )
                 for number in numbers:
                     CampaignLead.objects.create(
@@ -47,6 +49,8 @@ class DialerHome(View):
                     )
             else:            
                 campaign = Campaign.objects.get(campaign_uuid=campaign_uuid)
+                campaign.campaign_ivr_menu = campaign_ivr_menu
+                campaign.save()
                 CampaignLead.objects.filter(campaign=campaign).delete()
                 for number in numbers:
                     if number not in json.loads(removed_numbers_json):
@@ -60,7 +64,6 @@ class DialerHome(View):
         if action == 'delete':
             campaign_ids = request.POST.getlist('campaign_ids')
             Campaign.objects.filter(id__in=campaign_ids).delete()
-            # Optionally, set returned_data or a message
 
         campaigns = Campaign.objects.prefetch_related('leads').all()
 

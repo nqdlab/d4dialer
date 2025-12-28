@@ -14,7 +14,8 @@
             {% csrf_token %}
             <input type="hidden" name="numbers" id="numbersInput" />
             <input type="hidden" name="action" id="actionInput" value="save" />
-            <input type="hidden" name="campaign_uuid" id="campaignUuiInput" />
+            <input type="hidden" name="campaign_uuid" id="campaignUuidInput" />
+            <input type="hidden" name="campaign_ivr_menu" id="campaignIvrMenuInput" />
             <button id="saveButton" class="btn btn-success px-4 me-2" type="submit">Save</button>
           </form>
           <button id="deleteButton" class="btn btn-danger">Delete</button>
@@ -44,21 +45,21 @@
           <ul id="phoneList" class="list-group w-100"></ul>          
         </div>
       </div>
-      <div class="row border rounded shadow-sm mt-4">
+      <div class="row border rounded shadow-sm mt-4" id="settingsSection">
         <div class="col-12 p-4">
           <h2 class="mb-3">Settings</h2>
           <!-- Add your campaign settings form or content here -->
           <p class="text-muted">Configure campaign settings here.</p>
-
-          <!-- IVR dropdown -->
-          <div class="form-group mt-3">
-            <label for="ivr">IVR</label>
-            <select class="form-control" id="ivr" name="ivr">
-              <option value="">-- Select IVR Option --</option>
-              {% for ivr_name in ivr_menu_names %} 
-                <option value="{{ ivr_name }}">{{ ivr_name }}</option> 
-              {% endfor %}
-            </select>
+          <div class="form-group row mt-3">
+            <label for="ivr" class="col-sm-2 col-form-label">IVR</label>
+            <div class="col-sm-10">
+              <select class="form-control" id="ivr" name="ivr">
+                <option value="" selected>-- Select IVR Option --</option>
+                {% for ivr_name in ivr_menu_names %}
+                  <option value="{{ ivr_name }}">{{ ivr_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -69,13 +70,17 @@
       const addButton = document.getElementById('addButton');
       const phoneList = document.getElementById('phoneList');
       const numbersInput = document.getElementById('numbersInput');
+      const campaignUuidInput = document.getElementById('campaignUuidInput');      
       const dialerForm = document.getElementById('dialerForm');
-      const numbers = [];
       const deleteButton = document.getElementById('deleteButton');
       const campaignCheckboxes = document.querySelectorAll('.campaign-checkbox');
       const saveButton = document.getElementById('saveButton');
+      const ivrSelect = document.getElementById("ivr");
+      const settingsSection = document.getElementById("settingsSection");
+      const campaignIvrMenuInput = document.getElementById('campaignIvrMenuInput');
       const PAGE_SIZE = 10;
       let currentPage = 1;
+      const numbers = [];
       let newNumbersAdded = false;
       let selectedCampaignUui = "";
       const removedNumbers = [];
@@ -83,6 +88,8 @@
       
       saveButton.style.display = 'none';
       deleteButton.style.display = 'none';
+      settingsSection.style.display = 'none';
+      
 
       document.getElementById('d4dialerTitle').addEventListener('click', function() {
         window.location.href = "{% url 'dialer' %}";
@@ -279,6 +286,7 @@
           numbers.length = 0;
           numbers.push(...campaignNumbers);
           newNumbersAdded = false;
+
           // Show campaign UUID above phone list and set selectedCampaignUui
           const selectedCampaignUuiDiv = document.getElementById('selectedCampaignUui');
           selectedCampaignUuiDiv.textContent = '';
@@ -286,6 +294,9 @@
             if (campaignId == "{{ campaign.id }}") {
               selectedCampaignUuiDiv.textContent = "{{ campaign.campaign_uuid }}";
               selectedCampaignUui = "{{ campaign.campaign_uuid }}";
+              campaignUuidInput.value = "{{ campaign.campaign_uuid }}";
+              ivrSelect.value = "{{ campaign.campaign_ivr_menu }}";
+              settingsSection.style.display = 'block';
             }
           {% endfor %}
           renderList(1);
@@ -294,13 +305,19 @@
       });
 
       let removedNumbersInput = document.getElementById('removedNumbersInput');
-        if (!removedNumbersInput) {
-          removedNumbersInput = document.createElement('input');
-          removedNumbersInput.type = 'hidden';
-          removedNumbersInput.name = 'removed_numbers';
-          removedNumbersInput.id = 'removedNumbersInput';
-          dialerForm.appendChild(removedNumbersInput);
-        }
+      if (!removedNumbersInput) {
+        removedNumbersInput = document.createElement('input');
+        removedNumbersInput.type = 'hidden';
+        removedNumbersInput.name = 'removed_numbers';
+        removedNumbersInput.id = 'removedNumbersInput';
+        dialerForm.appendChild(removedNumbersInput);
+      }
+
+      ivrSelect.addEventListener("change", function() {
+        const selectedValue = ivrSelect.value;
+        campaignIvrMenuInput.value = selectedValue;
+        saveButton.style.display = 'inline-block';
+      });
 
       // Initial render
       renderList(1);
