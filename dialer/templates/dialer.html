@@ -48,8 +48,6 @@
       <div class="row border rounded shadow-sm mt-4" id="settingsSection">
         <div class="col-12 p-4">
           <h2 class="mb-3">Settings</h2>
-          <!-- Add your campaign settings form or content here -->
-          <p class="text-muted">Configure campaign settings here.</p>
           <div class="form-group row mt-3">
             <label for="ivr" class="col-sm-2 col-form-label">IVR</label>
             <div class="col-sm-10">
@@ -61,6 +59,18 @@
               </select>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div class="row border rounded shadow-sm mt-4" id="statusSection">
+        <div class="col-12 p-4">
+          <h2 class="mb-3">Status</h2> 
+          <form id="statusForm" method="post" action="{% url 'dialer' %}" class="d-flex align-items-center m-0">
+            {% csrf_token %}       
+            <input type="hidden" name="action" id="statusStart" value="start" />   
+            <input type="hidden" name="campaign_uuid_start" id="campaignUuidInputStart"/>
+            <button id="startButton" class="btn btn-success px-4 me-2" type="submit">Start</button>
+          </form>         
         </div>
       </div>
 
@@ -77,7 +87,9 @@
       const saveButton = document.getElementById('saveButton');
       const ivrSelect = document.getElementById("ivr");
       const settingsSection = document.getElementById("settingsSection");
+      const statusSection = document.getElementById("statusSection");
       const campaignIvrMenuInput = document.getElementById('campaignIvrMenuInput');
+      const campaignUuidInputStart = document.getElementById('campaignUuidInputStart');
       const PAGE_SIZE = 10;
       let currentPage = 1;
       const numbers = [];
@@ -89,6 +101,7 @@
       saveButton.style.display = 'none';
       deleteButton.style.display = 'none';
       settingsSection.style.display = 'none';
+      statusSection.style.display = 'none';
       
 
       document.getElementById('d4dialerTitle').addEventListener('click', function() {
@@ -176,6 +189,7 @@
           phoneInput.value = '';
           phoneInput.focus();
           updateSaveButtonVisibility();
+          settingsSection.style.display = 'block';
         }
       });
 
@@ -295,8 +309,10 @@
               selectedCampaignUuiDiv.textContent = "{{ campaign.campaign_uuid }}";
               selectedCampaignUui = "{{ campaign.campaign_uuid }}";
               campaignUuidInput.value = "{{ campaign.campaign_uuid }}";
+              campaignUuidInputStart.value = "{{ campaign.campaign_uuid }}";
               ivrSelect.value = "{{ campaign.campaign_ivr_menu }}";
               settingsSection.style.display = 'block';
+              statusSection.style.display = 'block';
             }
           {% endfor %}
           renderList(1);

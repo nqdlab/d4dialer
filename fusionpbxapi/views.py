@@ -14,7 +14,6 @@ class FusionpbxApiHandler(APIView):
 			endpoint = data.get("endpoint")
 			destination = data.get("destination")
 			domain = data.get("domain")
-			domain = '172.25.108.14'	
 		
 			cursor = connections['fusionpbx'].cursor()
 			cursor.execute("select api_key from v_users;")
@@ -48,9 +47,22 @@ class FusionpbxApiHandler(APIView):
 
 				esl_conn = ESL.ESLconnection("127.0.0.1", "8021", "ClueCon")
 				if not esl_conn.connected():
-					return Response("FAILED")
-
+					return Response("FAILED")				
 				response = esl_conn.bgapi(cmd)
+				job_uuid_reponse = response.getHeader("Job-UUID")	
+				esl_conn.events("plain","BACKGROUND_JOB CHANNEL_CALLSTATE")
+				unique_id = ""
+				while esl_conn.connected():
+					events = esl_conn.recvEvent()
+					if events.getHeader("Event-Name") == "BACKGROUND_JOB":						
+						if events.getHeader("Job-UUID") == job_uuid_reponse:
+							unique_id = events.getBody().split(" ")[1].strip()
+					if unique_id:
+						if events.getHeader("Channel-Call-State") == "HANGUP":
+							if events.getHeader("Unique-ID") == unique_id:
+								break
+								
+				esl_conn.disconnect()		
 				return Response("COMPLETED")
 			else:
 				return Response("NOT_IMPLEMENTED")

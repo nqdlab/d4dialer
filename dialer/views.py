@@ -4,6 +4,7 @@ from django.http import HttpResponse
 from django.db import connections
 import json
 import uuid
+import requests
 from .models import Campaign, CampaignLead
 
 class DialerHome(View):
@@ -21,6 +22,7 @@ class DialerHome(View):
         campaign_uuid = request.POST.get('campaign_uuid', '')
         campaign_ivr_menu = request.POST.get('campaign_ivr_menu', '')
         removed_numbers_json = request.POST.get('removed_numbers', '[]')
+        campaign_uuid_start = request.POST.get('campaign_uuid_start', '')
 
         try:
             numbers = json.loads(numbers_json)
@@ -65,6 +67,35 @@ class DialerHome(View):
             campaign_ids = request.POST.getlist('campaign_ids')
             Campaign.objects.filter(id__in=campaign_ids).delete()
 
-        campaigns = Campaign.objects.prefetch_related('leads').all()
+        if action == 'start':
+            if campaign_uuid_start:
+                campaign_ivr_menu_start = Campaign.objects.filter(campaign_uuid=campaign_uuid_start).values_list("campaign_ivr_menu", flat=True).first()
+                cursor = connections['fusionpbx'].cursor()
+                cursor.execute(f"select ivr_menu_extension from v_ivr_menus where ivr_menu_name='{campaign_ivr_menu_start}';")
+                rows = cursor.fetchall()
+                ivr_menu_extension = rows[0][0]
+                cursor.execute(f"select domain_uuid from v_ivr_menus where ivr_menu_name='{campaign_ivr_menu_start}';")
+                rows = cursor.fetchall()
+                domain_uuid = rows[0][0]
+                cursor.execute(f"select domain_name from v_domains where domain_uuid='{domain_uuid}';")
+                rows = cursor.fetchall()
+                domain_name = rows[0][0]
 
-        return render(request, "dialer.html", {"campaigns": campaigns, "ivr_menu_names": ivr_menu_names})
+                phone_numbers = CampaignLead.objects.filter( campaign__campaign_uuid=campaign_uuid_start ).values_list("phone_number", flat=True)
+                phone_number = phone_numbers.first()
+                
+                url = "http://127.0.0.1:8000/api/fusionpbx/"
+                payload = { 
+                    "token": "BqjUiAKGUP7kZTUYj13X9pvxMXULD0ev", 
+                    "action": "originate", 
+                    "endpoint": f"{phone_number}", 
+                    "destination": f"{ivr_menu_extension}", 
+                    "domain": f"{domain_name}" 
+                    }
+                response = requests.post(url, json=payload)
+
+        campaigns = Campaign.objects.prefetch_related('leads').all()
+        return render(request, "dialer.html", {
+            "campaigns": campaigns, 
+            "ivr_menu_names": ivr_menu_names
+            })
