@@ -21,7 +21,7 @@ class FusionpbxApiHandler(APIView):
 			api_keys = [r[0] for r in rows]
 
 			if not token in api_keys:
-				return Response("ACCESS_DENIED")
+				return Response({"reason": "ACCESS_DENIED"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 			if action == "originate":
 				cursor.execute("select extension from v_extensions;")
@@ -43,28 +43,33 @@ class FusionpbxApiHandler(APIView):
 					if ivr_menu_uuid:
 						cmd = f"originate {{ignore_early_media=true}}user/{endpoint}@{domain} &ivr({ivr_menu_uuid})"
 					else:
-						return Response("FAILED")
+						return Response({"reason": "FAILED"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 				esl_conn = ESL.ESLconnection("127.0.0.1", "8021", "ClueCon")
 				if not esl_conn.connected():
-					return Response("FAILED")				
+					return Response({"reason": "FAILED"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 				response = esl_conn.bgapi(cmd)
-				job_uuid_reponse = response.getHeader("Job-UUID")	
+				job_uuid_response = response.getHeader("Job-UUID")	
 				esl_conn.events("plain","BACKGROUND_JOB CHANNEL_CALLSTATE")
 				unique_id = ""
 				while esl_conn.connected():
 					events = esl_conn.recvEvent()
-					if events.getHeader("Event-Name") == "BACKGROUND_JOB":						
-						if events.getHeader("Job-UUID") == job_uuid_reponse:
-							unique_id = events.getBody().split(" ")[1].strip()
+					if events.getHeader("Event-Name") == "BACKGROUND_JOB":
+						if events.getHeader("Job-UUID") == job_uuid_response:
+							if events.getBody().split(" ")[0].strip() == "+OK":
+								unique_id = events.getBody().split(" ")[1].strip()
+							if events.getBody().split(" ")[0].strip() == "-ERR":
+								hangup_cause = events.getBody().split(" ")[1].strip()
+								break
 					if unique_id:
-						if events.getHeader("Channel-Call-State") == "HANGUP":
-							if events.getHeader("Unique-ID") == unique_id:
+						if events.getHeader("Unique-ID") == unique_id:
+							if events.getHeader("Channel-Call-State") == "HANGUP":
+								hangup_cause = events.getHeader("Hangup-Cause")
 								break
 								
 				esl_conn.disconnect()		
-				return Response("COMPLETED")
+				return Response({"reason": f"{hangup_cause}"})
 			else:
-				return Response("NOT_IMPLEMENTED")
+				return Response({"reason": "NOT_IMPLEMENTED"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 		except Exception as e:
-			return Response("FAILED")
+			return Response({"reason": "FAILED"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -15,7 +15,8 @@
             <input type="hidden" name="numbers" id="numbersInput" />
             <input type="hidden" name="action" id="actionInput" value="save" />
             <input type="hidden" name="campaign_uuid" id="campaignUuidInput" />
-            <input type="hidden" name="campaign_ivr_menu" id="campaignIvrMenuInput" />
+            <input type="hidden" name="campaign_ivr_menu" id="campaignIvrMenuSelect" />
+            <input type="hidden" name="campaign_concurrent_calls" id="campaignConcurrentCallsInput" value="1" />
             <button id="saveButton" class="btn btn-success px-4 me-2" type="submit">Save</button>
           </form>
           <button id="deleteButton" class="btn btn-danger">Delete</button>
@@ -37,7 +38,7 @@
         </div>      
         <div class="col-md-4 p-4 d-flex flex-column align-items-start">
           <h2 class="mb-3">Phone Numbers</h2>
-          <div id="selectedCampaignUui" class="mb-2 text-primary fw-bold" style="font-size: small;"></div>
+          <div id="selectedCampaignUuid" class="mb-2 text-primary fw-bold" style="font-size: small;"></div>
           <div class="input-group mb-3">
             <input type="text" id="phoneInput" class="form-control" placeholder="Enter phone number" />
             <button id="addButton" class="btn btn-primary">Add</button>
@@ -49,14 +50,18 @@
         <div class="col-12 p-4">
           <h2 class="mb-3">Settings</h2>
           <div class="form-group row mt-3">
-            <label for="ivr" class="col-sm-2 col-form-label">IVR</label>
+            <label for="ivrSelect" class="col-sm-2 col-form-label">IVR</label>
             <div class="col-sm-10">
-              <select class="form-control" id="ivr" name="ivr">
-                <option value="" selected>-- Select IVR Option --</option>
+              <select class="form-control" id="ivrSelect" name="ivr">
+                <option value="" selected disabled>-- Select IVR Option --</option>
                 {% for ivr_name in ivr_menu_names %}
                   <option value="{{ ivr_name }}">{{ ivr_name }}</option>
                 {% endfor %}
               </select>
+            </div>
+            <label for="concurrentCallsInput" class="col-sm-2 col-form-label">Concurrent</label>
+            <div class="col-sm-10">              
+              <input type="number" step="1" min="1" value="1" id="concurrentCallsInput" name="concurrentCalls" class="form-control" placeholder="Enter concurrent calls" />
             </div>
           </div>
         </div>
@@ -65,6 +70,9 @@
       <div class="row border rounded shadow-sm mt-4" id="statusSection">
         <div class="col-12 p-4">
           <h2 class="mb-3">Status</h2> 
+          <p style="display:inline;">Call Status: </p>
+          <p style="display:inline;" id="callStatusP"></p>
+          <p></p>
           <form id="statusForm" method="post" action="{% url 'dialer' %}" class="d-flex align-items-center m-0">
             {% csrf_token %}       
             <input type="hidden" name="action" id="statusStart" value="start" />   
@@ -85,18 +93,20 @@
       const deleteButton = document.getElementById('deleteButton');
       const campaignCheckboxes = document.querySelectorAll('.campaign-checkbox');
       const saveButton = document.getElementById('saveButton');
-      const ivrSelect = document.getElementById("ivr");
+      const ivrSelect = document.getElementById("ivrSelect");
       const settingsSection = document.getElementById("settingsSection");
       const statusSection = document.getElementById("statusSection");
-      const campaignIvrMenuInput = document.getElementById('campaignIvrMenuInput');
+      const campaignIvrMenuSelect = document.getElementById('campaignIvrMenuSelect');
       const campaignUuidInputStart = document.getElementById('campaignUuidInputStart');
+      const callStatus = document.getElementById('callStatusP');
+      const concurrentCallsInput = document.getElementById('concurrentCallsInput');
+      callStatus.textContent = "N/A";
       const PAGE_SIZE = 10;
       let currentPage = 1;
       const numbers = [];
       let newNumbersAdded = false;
-      let selectedCampaignUui = "";
+      let selectedCampaignUuid = "";
       const removedNumbers = [];
-
       
       saveButton.style.display = 'none';
       deleteButton.style.display = 'none';
@@ -226,10 +236,10 @@
             e.stopPropagation();
             li.style.textDecoration = 'line-through';
             li.style.color = '#888';
-            if (selectedCampaignUui && !removedNumbers.includes(num)) {
+            if (selectedCampaignUuid && !removedNumbers.includes(num)) {
               // If a campaign is selected, add to removedNumbers
               removedNumbers.push(num);
-            } else if (!selectedCampaignUui) {
+            } else if (!selectedCampaignUuid) {
               // If no campaign is selected, remove the number from the numbers array
               const idxInNumbers = numbers.indexOf(num);
               if (idxInNumbers !== -1) {
@@ -289,7 +299,7 @@
         }
         numbersInput.value = JSON.stringify(numbers);
         removedNumbersInput.value = JSON.stringify(removedNumbers);
-        document.getElementById('campaignUuiInput').value = selectedCampaignUui;
+        document.getElementById('campaignUuiInput').value = selectedCampaignUuid;
         // The form will submit normally to Django
       });
 
@@ -301,18 +311,25 @@
           numbers.push(...campaignNumbers);
           newNumbersAdded = false;
 
-          // Show campaign UUID above phone list and set selectedCampaignUui
-          const selectedCampaignUuiDiv = document.getElementById('selectedCampaignUui');
+          const selectedCampaignUuiDiv = document.getElementById('selectedCampaignUuid');
           selectedCampaignUuiDiv.textContent = '';
           {% for campaign in campaigns %}
             if (campaignId == "{{ campaign.id }}") {
               selectedCampaignUuiDiv.textContent = "{{ campaign.campaign_uuid }}";
-              selectedCampaignUui = "{{ campaign.campaign_uuid }}";
+              selectedCampaignUuid = "{{ campaign.campaign_uuid }}";
               campaignUuidInput.value = "{{ campaign.campaign_uuid }}";
               campaignUuidInputStart.value = "{{ campaign.campaign_uuid }}";
               ivrSelect.value = "{{ campaign.campaign_ivr_menu }}";
+              campaignIvrMenuSelect.value = "{{ campaign.campaign_ivr_menu }}";
               settingsSection.style.display = 'block';
               statusSection.style.display = 'block';
+              concurrentCallsInput.value = "{{ campaign.campaign_concurrent_calls }}";
+              campaignConcurrentCallsInput.value = "{{ campaign.campaign_concurrent_calls }}";
+              if (selectedCampaignUuid == "{{ call_status.campaign_uuid }}") {
+                callStatus.textContent = "{{ call_status.reason }}";
+              } else {
+                callStatus.textContent = "N/A";
+              }
             }
           {% endfor %}
           renderList(1);
@@ -331,7 +348,13 @@
 
       ivrSelect.addEventListener("change", function() {
         const selectedValue = ivrSelect.value;
-        campaignIvrMenuInput.value = selectedValue;
+        campaignIvrMenuSelect.value = selectedValue;
+        saveButton.style.display = 'inline-block';
+      });
+
+      concurrentCallsInput.addEventListener("input", function() {
+        const concurrentValue = concurrentCallsInput.value;
+        campaignConcurrentCallsInput.value = concurrentValue;
         saveButton.style.display = 'inline-block';
       });
 
