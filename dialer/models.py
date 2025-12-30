@@ -7,11 +7,17 @@ class Campaign(models.Model):
     campaign_concurrent_calls = models.IntegerField(default=1)
 
     def __str__(self):
-        return self.campaign_name
+        return self.campaign_uuid
 
 class CampaignLead(models.Model):
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='leads')
     phone_number = models.CharField(max_length=32)
+    status = models.CharField(max_length=32, null=True, blank=True)
+
+    class Meta: 
+        constraints = [ 
+            models.UniqueConstraint(fields=['campaign', 'phone_number'], name='unique_lead_per_campaign') 
+            ]
 
     def __str__(self):
-        return f"{self.campaign.campaign_name} - {self.phone_number}"
+        return f"{self.campaign.campaign_uuid} - {self.phone_number}"

@@ -43,6 +43,7 @@
             <input type="text" id="phoneInput" class="form-control" placeholder="Enter phone number" />
             <button id="addButton" class="btn btn-primary">Add</button>
           </div>
+          <input type="hidden" id="csrf-token" value="{{ csrf_token }}">
           <ul id="phoneList" class="list-group w-100"></ul>          
         </div>
       </div>
@@ -330,6 +331,31 @@
               } else {
                 callStatus.textContent = "N/A";
               }
+              
+              const csrftoken = document.getElementById("csrf-token").value;
+              const formData = new FormData(); 
+              formData.append("action", "numbers_query"); 
+              formData.append("campaign_uuid_query", selectedCampaignUuid);
+
+              fetch("{% url 'dialer' %}", {
+                method: 'POST',
+                headers: {
+                  'X-CSRFToken': csrftoken 
+                },
+                body: formData
+              })
+                .then(response => {
+                  console.log("Fetched lead:", response);
+                  return response.json();
+                })
+                .then(leads => {
+                  leads.forEach(lead => {
+                    console.log("Fetched lead:", lead);
+                  });
+                })
+                .catch(error => {
+                  console.error("Error fetching leads:", error);
+                });
             }
           {% endfor %}
           renderList(1);
