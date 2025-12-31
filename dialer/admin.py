@@ -1,3 +1,5 @@
 from django.contrib import admin
+from .models import Campaign, CampaignLead
 
-# Register your models here.
+admin.site.register(CampaignLead) 
+admin.site.register(Campaign)

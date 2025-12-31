@@ -21,17 +21,9 @@ class DialerHome(View):
 
     def post(self, request, *args, **kwargs):
         action = request.POST.get('action', '')
-        numbers_json = request.POST.get('numbers', '[]')
         campaign_uuid = request.POST.get('campaign_uuid', '')
-        campaign_ivr_menu = request.POST.get('campaign_ivr_menu', '')
-        removed_numbers_json = request.POST.get('removed_numbers', '[]')
+        campaign_ivr_menu = request.POST.get('campaign_ivr_menu', '')        
         campaign_uuid_start = request.POST.get('campaign_uuid_start', '')        
-        call_status = []
-
-        try:
-            numbers = json.loads(numbers_json)
-        except json.JSONDecodeError:
-            numbers = []
 
         cursor = connections['fusionpbx'].cursor()
         cursor.execute("select ivr_menu_name from v_ivr_menus;")
@@ -45,6 +37,16 @@ class DialerHome(View):
 
         if action == 'save':
             campaign_concurrent_calls = request.POST.get('campaign_concurrent_calls', 1)
+            new_numbers_string = request.POST.get('new_numbers', '[]')
+            if new_numbers_string == '':
+                new_numbers_string = '[]'
+            new_numbers = json.loads(new_numbers_string)
+
+            removed_numbers_string = request.POST.get('removed_numbers', '[]')
+            if removed_numbers_string == '':
+                removed_numbers_string = '[]'
+            removed_numbers = json.loads(removed_numbers_string)
+
             if not campaign_uuid:
                 # Create a new campaign if no UUID provided
                 campaign_uuid = str(uuid.uuid4())
@@ -55,7 +57,7 @@ class DialerHome(View):
                     campaign_ivr_menu=campaign_ivr_menu,
                     campaign_concurrent_calls=campaign_concurrent_calls
                 )
-                for number in numbers:
+                for number in new_numbers:
                     CampaignLead.objects.create(
                         campaign=campaign,
                         phone_number=number
@@ -65,14 +67,13 @@ class DialerHome(View):
                 campaign.campaign_ivr_menu = campaign_ivr_menu
                 campaign.campaign_concurrent_calls = campaign_concurrent_calls
                 campaign.save()
-                CampaignLead.objects.filter(campaign=campaign).delete()
-                for number in numbers:
-                    if number not in json.loads(removed_numbers_json):
-                        CampaignLead.objects.create(
+                for number in new_numbers:
+                    if CampaignLead.objects.filter(campaign__campaign_uuid=campaign_uuid, phone_number=number).exists():
+                        continue
+                    CampaignLead.objects.create(
                             campaign=campaign,
                             phone_number=number
-                        )
-
+                        )                                     
             campaigns = Campaign.objects.all()
 
         if action == 'delete':
@@ -99,7 +100,7 @@ class DialerHome(View):
                     counter = 0
                     taskList = []
                     for phone_number in phone_numbers:  
-                            task = threading.Thread(target=originate_call, args=(campaign_ivr_menu_start, phone_number, ivr_menu_extension, domain_name))
+                            task = threading.Thread(target=originate_call, args=(campaign_uuid_start, phone_number, ivr_menu_extension, domain_name))
                             task.start()
                             taskList.append(task)
                             counter += 1
@@ -112,21 +113,10 @@ class DialerHome(View):
                                             taskList.remove(task)
                                             counter -= 1
                                             tasks_in_progress = False
-                                            break
-
-                    call_status = {
-                        "reason": "STARTED",
-                        "campaign_uuid": campaign_uuid_start
-                    }
-                else:
-                    call_status = {
-                        "reason": "NO_IVR_MENU_SET",
-                        "campaign_uuid": campaign_uuid_start
-                    }
+                                            break                 
 
         campaigns = Campaign.objects.all()        
         return render(request, "dialer.html", {
             "campaigns": campaigns, 
             "ivr_menu_names": ivr_menu_names,
-            "call_status": call_status
             })
