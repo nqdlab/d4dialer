@@ -27,9 +27,14 @@ class FusionpbxApiHandler(APIView):
 				cursor.execute("select extension from v_extensions;")
 				rows = cursor.fetchall()
 				extensions = [r[0] for r in rows]
+
+				if endpoint in extensions:
+					endpoint_url = f"user/{endpoint}@{domain}"
+				else:
+					endpoint_url = f"sofia/gateway/db0a2ab6-1243-425d-846e-c76e5ca8a961/{endpoint}"
 		
 				if destination in extensions:
-					cmd = f"originate {{ignore_early_media=true}}user/{endpoint}@{domain} {destination}"
+					destination_url = destination
 				else:
 					#Logic to call any ivr even when IVR Direct dial is False
 					#application $ivr is used instead of a dialplan extension				
@@ -41,9 +46,11 @@ class FusionpbxApiHandler(APIView):
 					ivr_menu_uuid = map.get(destination)
 
 					if ivr_menu_uuid:
-						cmd = f"originate {{ignore_early_media=true}}user/{endpoint}@{domain} &ivr({ivr_menu_uuid})"
+						destination_url = f"&ivr({ivr_menu_uuid})"
 					else:
 						return Response({"reason": "FAILED"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+				cmd = f"originate {{ignore_early_media=true}}{endpoint_url} {destination_url}"
 
 				esl_conn = ESL.ESLconnection("127.0.0.1", "8021", "ClueCon")
 				if not esl_conn.connected():

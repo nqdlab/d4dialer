@@ -3,8 +3,9 @@
   <head>
     <h1 class="fw-bold" id="d4dialerTitle" style="cursor:pointer;">d4Dialer</h1>
     <meta charset="utf-8">
-
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
   </head>
   <body>
     <div class="container mt-5">
@@ -13,9 +14,11 @@
           <form id="dialerForm" method="post" action="{% url 'dialer' %}" class="d-flex align-items-center m-0">
             {% csrf_token %}
             <input type="hidden" name="new_numbers" id="newNumbersInput" />
+            <input type="hidden" name="deleted_numbers" id="deletedNumbersInput" />
             <input type="hidden" name="action" id="actionInput" value="save" />
             <input type="hidden" name="campaign_uuid" id="campaignUuidInput" />
             <input type="hidden" name="campaign_ivr_menu" id="campaignIvrMenuSelect" />
+            <input type="hidden" name="campaign_sip_gateway" id="campaignSipGatewaySelect" />
             <input type="hidden" name="campaign_concurrent_calls" id="campaignConcurrentCallsInput" value="1" />
             <button id="saveButton" class="btn btn-success px-4 me-2" type="submit">Save</button>
           </form>
@@ -51,12 +54,21 @@
         <div class="col-12 p-4">
           <h2 class="mb-3">Settings</h2>
           <div class="form-group row mt-3">
+            <label for="sipGatewaySelect" class="col-sm-2 col-form-label">SIP Gateway</label>
+            <div class="col-sm-10">
+              <select class="form-control" id="sipGatewaySelect" name="sipGateway">
+                <option value="" selected disabled>-- Select SIP Gateway --</option>
+                {% for sip_gateway_name in sip_gateway_names %}
+                  <option value="{{ sip_gateway_name }}">{{ sip_gateway_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
             <label for="ivrSelect" class="col-sm-2 col-form-label">IVR</label>
             <div class="col-sm-10">
               <select class="form-control" id="ivrSelect" name="ivr">
                 <option value="" selected disabled>-- Select IVR Option --</option>
-                {% for ivr_name in ivr_menu_names %}
-                  <option value="{{ ivr_name }}">{{ ivr_name }}</option>
+                {% for ivr_menu in ivr_menu_names %}
+                  <option value="{{ ivr_menu }}">{{ ivr_menu }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -86,15 +98,18 @@
       const addButton = document.getElementById('addButton');
       const phoneList = document.getElementById('phoneList');
       const newNumbersInput = document.getElementById('newNumbersInput');
+      const deletedNumbersInput = document.getElementById('deletedNumbersInput');
       const campaignUuidInput = document.getElementById('campaignUuidInput');      
       const dialerForm = document.getElementById('dialerForm');
       const deleteButton = document.getElementById('deleteButton');
       const campaignCheckboxes = document.querySelectorAll('.campaign-checkbox');
       const saveButton = document.getElementById('saveButton');
       const ivrSelect = document.getElementById("ivrSelect");
+      const sipGatewaySelect = document.getElementById("sipGatewaySelect");
       const settingsSection = document.getElementById("settingsSection");
       const statusSection = document.getElementById("statusSection");
       const campaignIvrMenuSelect = document.getElementById('campaignIvrMenuSelect');
+      const campaignSipGatewaySelect = document.getElementById('campaignSipGatewaySelect');
       const campaignUuidInputStart = document.getElementById('campaignUuidInputStart');
       const concurrentCallsInput = document.getElementById('concurrentCallsInput');
       const PAGE_SIZE = 10;
@@ -102,7 +117,7 @@
       let leadsInCampaign = [];
       let newNumbers = [];
       let selectedCampaignUuid = "";
-      const removedNumbers = [];
+      let deletedNumbers = [];
       
       saveButton.style.display = 'none';
       deleteButton.style.display = 'none';
@@ -188,6 +203,13 @@
           leadsInCampaign.forEach(lead => {
             appendPhoneToPhoneList(lead, phoneList);
           });
+
+          deletedNumbers.forEach((number, index) => {
+            if (number === value) {              
+              deletedNumbers.splice(index, 1);
+              deletedNumbersInput.value = JSON.stringify(deletedNumbers);
+            }
+          });
         }
       });          
 
@@ -197,14 +219,17 @@
           const selectedCampaignUuiDiv = document.getElementById('selectedCampaignUuid');
           selectedCampaignUuiDiv.textContent = '';
           newNumbers = [];
+          deletedNumbers = [];
           {% for campaign in campaigns %}
             if (campaignId == "{{ campaign.id }}") {
               selectedCampaignUuiDiv.textContent = "{{ campaign.campaign_uuid }}";
               selectedCampaignUuid = "{{ campaign.campaign_uuid }}";
               campaignUuidInput.value = "{{ campaign.campaign_uuid }}";
               campaignUuidInputStart.value = "{{ campaign.campaign_uuid }}";
-              ivrSelect.value = "{{ campaign.campaign_ivr_menu }}";
+              ivrSelect.value = "{{ campaign.campaign_ivr_menu }}";              
               campaignIvrMenuSelect.value = "{{ campaign.campaign_ivr_menu }}";
+              sipGatewaySelect.value = "{{ campaign.campaign_sip_gateway }}";
+              campaignSipGatewaySelect.value = "{{ campaign.campaign_sip_gateway }}";
               settingsSection.style.display = 'block';
               statusSection.style.display = 'block';
               saveButton.style.display = 'none';
@@ -244,20 +269,17 @@
             }
           {% endfor %}
         });
-      });
-
-      let removedNumbersInput = document.getElementById('removedNumbersInput');
-      if (!removedNumbersInput) {
-        removedNumbersInput = document.createElement('input');
-        removedNumbersInput.type = 'hidden';
-        removedNumbersInput.name = 'removed_numbers';
-        removedNumbersInput.id = 'removedNumbersInput';
-        dialerForm.appendChild(removedNumbersInput);
-      }
+      });      
 
       ivrSelect.addEventListener("change", function() {
         const selectedValue = ivrSelect.value;
         campaignIvrMenuSelect.value = selectedValue;
+        saveButton.style.display = 'inline-block';
+      });
+
+      sipGatewaySelect.addEventListener("change", function() {
+        const selectedValue = sipGatewaySelect.value;
+        campaignSipGatewaySelect.value = selectedValue;
         saveButton.style.display = 'inline-block';
       });
 
@@ -277,8 +299,26 @@
         const statusSpan = document.createElement("span");
         statusSpan.textContent = lead.status || "N/A";
 
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "btn btn-sm btn-outline-danger";
+        deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+
+        deleteBtn.addEventListener("click", () => { 
+          deletedNumbers.push(lead.phone_number);
+          deletedNumbersInput.value = JSON.stringify(deletedNumbers);   
+          newNumbers.forEach((number, index) => {
+            if (number === lead.phone_number) {
+              newNumbers.splice(index, 1);
+              newNumbersInput.value = JSON.stringify(newNumbers);
+            }
+          });       
+          li.remove();
+          saveButton.style.display = 'block';
+        });
+
         li.appendChild(phoneSpan);
         li.appendChild(statusSpan);
+        li.appendChild(deleteBtn);
         list.appendChild(li);
       };
 

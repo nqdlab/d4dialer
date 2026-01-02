@@ -4,6 +4,7 @@ class Campaign(models.Model):
     campaign_uuid = models.CharField(max_length=255, unique=True)
     campaign_name = models.CharField(max_length=255)
     campaign_ivr_menu = models.CharField(max_length=255, null=True, blank=True)
+    campaign_sip_gateway = models.CharField(max_length=255, null=True, blank=True)
     campaign_concurrent_calls = models.IntegerField(default=1)
 
     def __str__(self):
