@@ -2,8 +2,8 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db import connections
-
 from freeswitchESL import ESL
+from dialer import dbhandler
 
 class FusionpbxApiHandler(APIView):
 	def post(self, request):
@@ -14,6 +14,7 @@ class FusionpbxApiHandler(APIView):
 			endpoint = data.get("endpoint")
 			destination = data.get("destination")
 			domain = data.get("domain")
+			gateway_uuid = data.get("gateway_uuid")
 		
 			cursor = connections['fusionpbx'].cursor()
 			cursor.execute("select api_key from v_users;")
@@ -31,7 +32,7 @@ class FusionpbxApiHandler(APIView):
 				if endpoint in extensions:
 					endpoint_url = f"user/{endpoint}@{domain}"
 				else:
-					endpoint_url = f"sofia/gateway/db0a2ab6-1243-425d-846e-c76e5ca8a961/{endpoint}"
+					endpoint_url = f"sofia/gateway/{gateway_uuid}/{endpoint}"
 		
 				if destination in extensions:
 					destination_url = destination
@@ -56,10 +57,13 @@ class FusionpbxApiHandler(APIView):
 				if not esl_conn.connected():
 					return Response({"reason": "FAILED"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 				response = esl_conn.bgapi(cmd)
+				# Get the Job-UUID from the response from the bgapi command, to track the background job
 				job_uuid_response = response.getHeader("Job-UUID")	
 				esl_conn.events("plain","BACKGROUND_JOB CHANNEL_CALLSTATE")
+				# define unique_id which will be retrieved from the body of the BACKGROUND_JOB event
 				unique_id = ""
 				while esl_conn.connected():
+					#Start listening for events
 					events = esl_conn.recvEvent()
 					if events.getHeader("Event-Name") == "BACKGROUND_JOB":
 						if events.getHeader("Job-UUID") == job_uuid_response:

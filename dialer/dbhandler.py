@@ -1,4 +1,7 @@
 from django.db import connections
+from .models import Campaign, CampaignLead
+
+#FusionPBX database access functions
 
 def execute(cmd):
     cursor = connections['fusionpbx'].cursor()
@@ -13,6 +16,10 @@ def get_ivr_menu_names():
 def get_sip_gateway_names():
     rows =  execute("select gateway from v_gateways;")
     return [r[0] for r in rows]
+
+def get_sip_gateway_uuid(gateway_name):
+    rows =  execute(f"select gateway_uuid from v_gateways where gateway='{gateway_name}';")
+    return rows[0][0] if rows else None
 
 def get_ivr_menu_extension(ivr_menu_name):
     rows = execute(f"select ivr_menu_extension from v_ivr_menus where ivr_menu_name='{ivr_menu_name}';")
@@ -35,3 +42,61 @@ def get_domain_name(domain_uuid):
 def get_api_keys():
     rows = execute("select api_key from v_users;")
     return [r[0] for r in rows]
+
+
+#Django internal databases access functions
+
+def get_campaigns():
+    return Campaign.objects.all()
+
+def get_campaign(campaign_uuid):
+    return Campaign.objects.get(campaign_uuid=campaign_uuid)
+
+def get_campaign_status(campaign_uuid):
+    campaign = Campaign.objects.get(campaign_uuid=campaign_uuid)
+    return campaign.campaign_status
+
+def get_ivr_in_campaign(campaign_uuid):
+    return Campaign.objects.filter(campaign_uuid=campaign_uuid).values_list("campaign_ivr_menu", flat=True).first()
+
+def get_concurrent_calls_in_campaign(campaign_uuid):
+    return Campaign.objects.filter(campaign_uuid=campaign_uuid).values_list("campaign_concurrent_calls", flat=True).first()
+
+def get_gateway_in_campaign(campaign_uuid):
+    return Campaign.objects.filter(campaign_uuid=campaign_uuid).values_list("campaign_sip_gateway", flat=True).first()
+
+def get_campaign_leads(campaign_uuid):
+    return CampaignLead.objects.filter(campaign__campaign_uuid=campaign_uuid).values("phone_number", "status")   
+
+def get_phone_numbers_in_campaign(campaign_uuid):
+    return CampaignLead.objects.filter( campaign__campaign_uuid=campaign_uuid ).values_list("phone_number", flat=True)
+
+def delete_campaigns(campaign_ids):
+    Campaign.objects.filter(id__in=campaign_ids).delete()
+
+def delete_campaign_lead(campaign_uuid, phone_number):
+    CampaignLead.objects.filter(campaign__campaign_uuid=campaign_uuid, phone_number=phone_number).delete()
+
+def create_campaign(campaign_uuid, campaign_name, campaign_ivr_menu, campaign_concurrent_calls, campaign_sip_gateway):
+    return Campaign.objects.create(
+                    campaign_uuid=campaign_uuid,                    
+                    campaign_name=campaign_name,
+                    campaign_ivr_menu=campaign_ivr_menu,
+                    campaign_concurrent_calls=campaign_concurrent_calls,
+                    campaign_sip_gateway=campaign_sip_gateway
+                )
+
+def is_number_in_campaign(campaign_uuid, phone_number):
+    return CampaignLead.objects.filter(campaign__campaign_uuid=campaign_uuid, phone_number=phone_number).exists()
+
+def create_campaign_lead(campaign, phone_number):
+    return CampaignLead.objects.create(
+        campaign=campaign,
+        phone_number=phone_number
+    )
+
+def update_campaign_lead_status(campaign_uuid, phone_number, status):
+    CampaignLead.objects.filter(campaign__campaign_uuid=campaign_uuid, phone_number=phone_number).update(status=status)
+    
+def update_campaign_status(campaign_uuid, status):
+    Campaign.objects.filter(campaign_uuid=campaign_uuid).update(campaign_status=status)
