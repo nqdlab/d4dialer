@@ -2,225 +2,178 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <h1 class="fw-bold" id="d4dialerTitle" style="cursor:pointer;">d4Dialer</h1>
     <meta charset="utf-8">
+    <title>d4Dialer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   </head>
   <body>
-    <div class="container mt-5">
-      <div class="row mb-3 align-items-center">        
-        <div class="col-md-6 d-flex justify-content-end">
-          <form id="dialerForm" method="post" action="{% url 'dialer' %}" class="d-flex align-items-center m-0">
-            {% csrf_token %}
-            <input type="hidden" name="new_numbers" id="newNumbersInput" />
-            <input type="hidden" name="deleted_numbers" id="deletedNumbersInput" />
-            <input type="hidden" name="action" id="actionInput" value="save" />
-            <input type="hidden" name="campaign_uuid" id="campaignUuidInput" />
-            <input type="hidden" name="campaign_ivr_menu" id="campaignIvrMenuSelect" />
-            <input type="hidden" name="campaign_sip_gateway" id="campaignSipGatewaySelect" />
-            <input type="hidden" name="campaign_concurrent_calls" id="campaignConcurrentCallsInput" value="1" />
-            <button id="saveButton" class="btn btn-success px-4 me-2" type="submit">Save</button>
-          </form>
-          <button id="deleteButton" class="btn btn-danger">Delete</button>
-        </div>
-      </div>
-      <div class="row border rounded shadow-sm">
-        <div class="col-md-4 p-4 border-end d-flex flex-column align-items-start" style="justify-content: flex-start;">
-          <h2 class="mb-3">Campaigns</h2>
-          <ul class="list-group w-100 mb-3" id="campaignList">
-            {% for campaign in campaigns %}
-              <li class="list-group-item d-flex align-items-center campaign-item" data-campaign-id="{{ campaign.id }}">
-                <input type="checkbox" class="form-check-input me-2 campaign-checkbox" data-campaign-id="{{ campaign.id }}">
-                <span>{{ campaign.campaign_name }}</span>
-              </li>
-            {% empty %}
-              <li class="list-group-item text-muted">No campaigns found.</li>
-            {% endfor %}
-          </ul>
-        </div>      
-        <div class="col-md-4 p-4 d-flex flex-column align-items-start">
-          <h2 class="mb-3">Phone Numbers</h2>
-          <div id="selectedCampaignUuid" class="mb-2 text-primary fw-bold" style="font-size: small;"></div>
-          <div class="input-group mb-3">
-            <input type="text" id="phoneInput" class="form-control" placeholder="Enter phone number" />
-            <button id="addButton" class="btn btn-primary">Add</button>
-          </div>
-          <input type="hidden" id="csrf-token" value="{{ csrf_token }}">
-          <ul id="phoneList" class="list-group w-100"></ul>          
-        </div>
-      </div>
-      <div class="row border rounded shadow-sm mt-4" id="settingsSection">
-        <div class="col-12 p-4">
-          <h2 class="mb-3">Settings</h2>
-          <div class="form-group row mt-3">
-            <label for="sipGatewaySelect" class="col-sm-2 col-form-label">SIP Gateway</label>
-            <div class="col-sm-10">
-              <select class="form-control" id="sipGatewaySelect" name="sipGateway">
-                <option value="" selected disabled>-- Select SIP Gateway --</option>
-                {% for sip_gateway_name in sip_gateway_names %}
-                  <option value="{{ sip_gateway_name }}">{{ sip_gateway_name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <label for="ivrSelect" class="col-sm-2 col-form-label">IVR</label>
-            <div class="col-sm-10">
-              <select class="form-control" id="ivrSelect" name="ivr">
-                <option value="" selected disabled>-- Select IVR Option --</option>
-                {% for ivr_menu in ivr_menu_names %}
-                  <option value="{{ ivr_menu }}">{{ ivr_menu }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <label for="concurrentCallsInput" class="col-sm-2 col-form-label">Concurrent</label>
-            <div class="col-sm-10">              
-              <input type="number" step="1" min="1" value="1" id="concurrentCallsInput" name="concurrentCalls" class="form-control" placeholder="Enter concurrent calls" />
-            </div>
-          </div>
-        </div>
+    <div class="container mt-5">     
+      <input type="hidden" id="csrf-token" value="{{ csrf_token }}"> 
+      <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true"> 
+        <div class="modal-dialog"> 
+          <div class="modal-content"> 
+            <form id="settingsForm" method="post" action="{% url 'dialer' %}">
+              {% csrf_token %}
+              <input type="hidden" name="action" id="actionSettingsForm" value="start" />
+              <div class="modal-header"> 
+                <h5 class="modal-title" id="settingsModalLabel">Settings</h5> 
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> 
+              </div> 
+              <div class="modal-body">
+                <div class="row mb-3">
+                  <label for="platformSelect" class="col-sm-4 col-form-label">VoIP Platform</label>
+                  <div class="col-sm-8">
+                    <select class="form-select" id="platformSelect" name="voip_platform">
+                      <option value="" selected disabled>-- Select VoIP Platform --</option>
+                      <option value="asterisk" > Asterisk </option>
+                      <option value="freepbx" > FreePBX </option>
+                      <option value="freeswitch" > FreeSWITCH </option>
+                      <option value="fusionpbx" > FusionPBX </option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row mb-3">
+                  <label for="dbUserInput" class="col-sm-4 col-form-label">DB User</label>
+                  <div class="col-sm-8">
+                    <input type="text" id="dbUserInput" name="voip_platform_db_user" class="form-control" placeholder="username" />
+                  </div>
+                </div>
+                <div class="row mb-3">
+                  <label for="dbPasswordInput" class="col-sm-4 col-form-label">DB Password</label>
+                  <div class="col-sm-8">
+                    <input type="text" id="dbPasswordInput" name="voip_platform_db_password" class="form-control" placeholder="password" />
+                  </div>
+                </div>
+                <div class="row mb-3">
+                  <label for="dbHostInput" class="col-sm-4 col-form-label">DB Host</label>
+                  <div class="col-sm-8">
+                    <input type="text" id="dbHostInput" name="voip_platform_db_host" class="form-control" placeholder="host" />
+                  </div>
+                </div>
+                <div class="row mb-3">
+                  <label for="dbPortInput" class="col-sm-4 col-form-label">DB Port</label>
+                  <div class="col-sm-8">
+                    <input type="text" id="dbPortInput" name="voip_platform_db_port" class="form-control" placeholder="port" />
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer"> 
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button> 
+                <button type="submit" class="btn btn-primary" data-bs-dismiss="modal">Save</button> 
+              </div> 
+            </form>
+          </div> 
+        </div> 
       </div>
 
-      <div class="row border rounded shadow-sm mt-4" id="statusSection">
-        <div class="col-12 p-4">
-          <h2 class="mb-3">Status </h2>               
-          <div class="row mb-3">
-            <label for="campaignStatusP" class="col-sm-2 col-form-label">Campaign Status:</label>
-            <div class="col-sm-10">
-              <p id="campaignStatusP" class="form-control-plaintext"></p>
-            </div>
-          </div>
-                     
-          <form id="statusForm" method="post" action="{% url 'dialer' %}" class="d-flex align-items-center m-0">
-            {% csrf_token %}       
-            <input type="hidden" name="action" id="statusStart" value="start" />   
-            <input type="hidden" name="campaign_uuid_start" id="campaignUuidInputStart"/>
-            <button id="startButton" class="btn btn-success px-4 me-2" type="submit">Start</button>
-          </form>         
-        </div>
+      <div class="d-flex align-items-center justify-content-between mb-3"> 
+        <h1 class="fw-bold mb-0" id="d4dialerTitle" style="cursor:pointer;">d4Dialer</h1> 
+        <button id="settingsButton" class="btn btn-secondary"> <i class="bi bi-gear"></i> </button> 
       </div>
 
+      {% if db_connection %}
+        <div class="row mb-3 align-items-center">        
+          <div class="col-md-6 d-flex justify-content-end">
+            <form id="dialerForm" method="post" action="{% url 'dialer' %}" class="d-flex align-items-center m-0">
+              {% csrf_token %}
+              <input type="hidden" name="new_numbers" id="newNumbersInput" />
+              <input type="hidden" name="deleted_numbers" id="deletedNumbersInput" />
+              <input type="hidden" name="action" id="actionInput" value="save" />
+              <input type="hidden" name="campaign_uuid" id="campaignUuidInput" />
+              <input type="hidden" name="campaign_ivr_menu" id="campaignIvrMenuSelect" />
+              <input type="hidden" name="campaign_sip_gateway" id="campaignSipGatewaySelect" />
+              <input type="hidden" name="campaign_concurrent_calls" id="campaignConcurrentCallsInput" value="1" />
+              <button type="hidden" id="saveButton" class="btn btn-success px-4 me-2" type="submit">Save</button>
+            </form>
+            <button type="hidden" id="deleteButton" class="btn btn-danger">Delete</button>
+          </div>          
+        </div>
+        <div class="row border rounded shadow-sm">
+          <div class="col-md-4 p-4 border-end d-flex flex-column align-items-start" style="justify-content: flex-start;">
+            <h2 class="mb-3">Campaigns</h2>
+            <ul class="list-group w-100 mb-3" id="campaignList">
+              {% for campaign in campaigns %}
+                <li class="list-group-item d-flex align-items-center campaign-item" data-campaign-id="{{ campaign.id }}">
+                  <input type="checkbox" class="form-check-input me-2 campaign-checkbox" data-campaign-id="{{ campaign.id }}">
+                  <span>{{ campaign.campaign_name }}</span>
+                </li>
+              {% empty %}
+                <li class="list-group-item text-muted">No campaigns found.</li>
+              {% endfor %}
+            </ul>
+          </div>      
+          <div class="col-md-4 p-4 d-flex flex-column align-items-start">
+            <h2 class="mb-3">Phone Numbers</h2>
+            <div id="selectedCampaignUuid" class="mb-2 text-primary fw-bold" style="font-size: small;"></div>
+            <div class="input-group mb-3">
+              <input type="text" id="phoneInput" class="form-control" placeholder="Enter phone number" />
+              <button id="addButton" class="btn btn-primary">Add</button>
+            </div>            
+            <ul id="phoneList" class="list-group w-100"></ul>          
+          </div>
+        </div>
+        <div class="row border rounded shadow-sm mt-4" id="settingsSection">
+          <div class="col-12 p-4">
+            <h2 class="mb-3">Settings</h2>
+            <div class="form-group row mt-3">
+              <label for="sipGatewaySelect" class="col-sm-2 col-form-label">SIP Gateway</label>
+              <div class="col-sm-10">
+                <select class="form-control" id="sipGatewaySelect" name="sipGateway">
+                  <option value="" selected disabled>-- Select SIP Gateway --</option>
+                  {% for sip_gateway_name in sip_gateway_names %}
+                    <option value="{{ sip_gateway_name }}">{{ sip_gateway_name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <label for="ivrSelect" class="col-sm-2 col-form-label">IVR</label>
+              <div class="col-sm-10">
+                <select class="form-control" id="ivrSelect" name="ivr">
+                  <option value="" selected disabled>-- Select IVR Option --</option>
+                  {% for ivr_menu in ivr_menu_names %}
+                    <option value="{{ ivr_menu }}">{{ ivr_menu }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <label for="concurrentCallsInput" class="col-sm-2 col-form-label">Concurrent calls</label>
+              <div class="col-sm-10">              
+                <input type="number" step="1" min="1" value="1" id="concurrentCallsInput" name="concurrentCalls" class="form-control" placeholder="Enter concurrent calls" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row border rounded shadow-sm mt-4" id="statusSection">
+          <div class="col-12 p-4">
+            <h2 class="mb-3">Status </h2>               
+            <div class="row mb-3">
+              <label for="campaignStatusP" class="col-sm-2 col-form-label">Campaign Status:</label>
+              <div class="col-sm-10">
+                <p id="campaignStatusP" class="form-control-plaintext"></p>
+              </div>
+            </div>
+                      
+            <form id="statusForm" method="post" action="{% url 'dialer' %}" class="d-flex align-items-center m-0">
+              {% csrf_token %}       
+              <input type="hidden" name="action" id="statusStart" value="start" />   
+              <input type="hidden" name="campaign_uuid_start" id="campaignUuidInputStart"/>
+              <button id="startButton" class="btn btn-success px-4 me-2" type="submit">Start</button>
+            </form>         
+          </div>
+        </div>
+      {% else %}
+        <p>No DB Connection!</p>
+      {% endif %}   
     </div>
+
     <script>
-      const phoneInput = document.getElementById('phoneInput');
-      const addButton = document.getElementById('addButton');
-      const phoneList = document.getElementById('phoneList');
-      const newNumbersInput = document.getElementById('newNumbersInput');
-      const deletedNumbersInput = document.getElementById('deletedNumbersInput');
-      const campaignUuidInput = document.getElementById('campaignUuidInput');      
-      const dialerForm = document.getElementById('dialerForm');
-      const deleteButton = document.getElementById('deleteButton');
-      const campaignCheckboxes = document.querySelectorAll('.campaign-checkbox');
-      const saveButton = document.getElementById('saveButton');
-      const ivrSelect = document.getElementById("ivrSelect");
-      const sipGatewaySelect = document.getElementById("sipGatewaySelect");
-      const settingsSection = document.getElementById("settingsSection");
-      const statusSection = document.getElementById("statusSection");
-      const campaignIvrMenuSelect = document.getElementById('campaignIvrMenuSelect');
-      const campaignSipGatewaySelect = document.getElementById('campaignSipGatewaySelect');
-      const campaignUuidInputStart = document.getElementById('campaignUuidInputStart');
-      const concurrentCallsInput = document.getElementById('concurrentCallsInput');
-      const campaignStatusP = document.getElementById('campaignStatusP');
-      const PAGE_SIZE = 10;
-      let currentPage = 1;
-      let leadsInCampaign = [];
-      let newNumbers = [];
-      let selectedCampaignUuid = "";
-      let deletedNumbers = [];
-      
-      saveButton.style.display = 'none';
-      deleteButton.style.display = 'none';
-      settingsSection.style.display = 'none';
-      statusSection.style.display = 'none';
-      
-
-      document.getElementById('d4dialerTitle').addEventListener('click', function() {
-        window.location.href = "{% url 'dialer' %}";
-      });
-
-      deleteButton.addEventListener('click', function() {
-        // Get all checked checkboxes
-        const checked = Array.from(document.querySelectorAll('.campaign-checkbox:checked'));
-        if (checked.length === 0) {
-          alert('Please select at least one campaign to delete.');
-          return;
-        }
-        if (!confirm('Are you sure you want to delete the selected campaign(s)?')) {
-          return;
-        }
-
-        // Collect campaign IDs to delete
-        const campaignIds = checked.map(cb => cb.getAttribute('data-campaign-id'));
-
-        // Create a form and submit it to Django for deletion
-        const form = document.createElement('form');
-        form.method = 'post';
-        form.action = '{% url "dialer" %}';
-
-        // Add CSRF token
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = csrfToken;
-        form.appendChild(csrfInput);
-
-        // Add action
-        const actionInput = document.createElement('input');
-        actionInput.type = 'hidden';
-        actionInput.name = 'action';
-        actionInput.value = 'delete';
-        form.appendChild(actionInput);
-
-        // Add campaign IDs
-        campaignIds.forEach(id => {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = 'campaign_ids';
-          input.value = id;
-          form.appendChild(input);
-        });
-
-        document.body.appendChild(form);
-        form.submit();
-      });
-
-      campaignCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-          const anyChecked = Array.from(campaignCheckboxes).some(cb => cb.checked);
-          deleteButton.style.display = anyChecked ? 'inline-block' : 'none';
-        });
-      });
-
-      addButton.addEventListener('click', function() {
-        const value = phoneInput.value.trim();
-        if (value) {
-          newNumbers.push(value);
-          let noDuplicateNewNumbers = [...new Set(newNumbers)];
-          newNumbersInput.value = JSON.stringify(noDuplicateNewNumbers);
-          phoneInput.value = '';
-          phoneInput.focus();
-          settingsSection.style.display = 'block';
-          saveButton.style.display = 'block';
-
-          const phoneList = document.getElementById("phoneList");
-          phoneList.innerHTML = "";
-          newNumbers.forEach(number => {
-            appendPhoneToPhoneList({phone_number: number}, phoneList);
-          });
-
-          leadsInCampaign.forEach(lead => {
-            appendPhoneToPhoneList(lead, phoneList);
-          });
-
-          deletedNumbers.forEach((number, index) => {
-            if (number === value) {              
-              deletedNumbers.splice(index, 1);
-              deletedNumbersInput.value = JSON.stringify(deletedNumbers);
-            }
-          });
-        }
-      });          
-
+      const dbConnection = {{ db_connection|yesno:"true,false" }};
+      const dialerUrl = "{% url 'dialer' %}";
+      const voipPlatform = "{{voip_platform}}";
+    </script> 
+    <script src="{% static 'dialer.js' %}"></script>    
+    <script>                                   
       document.querySelectorAll('.campaign-item').forEach(item => {
         item.addEventListener('click', function() {
           const campaignId = this.getAttribute('data-campaign-id');
@@ -228,6 +181,9 @@
           selectedCampaignUuiDiv.textContent = '';
           newNumbers = [];
           deletedNumbers = [];
+          
+          //using Django template to iterate the campaigns object which is not JSON serializable          
+
           {% for campaign in campaigns %}
             if (campaignId == "{{ campaign.id }}") {
               selectedCampaignUuiDiv.textContent = "{{ campaign.campaign_uuid }}";
@@ -249,7 +205,7 @@
               formData.append("action", "campaign_query"); 
               formData.append("campaign_uuid_query", selectedCampaignUuid);
 
-              fetch("{% url 'dialer' %}", {
+              fetch(dialerUrl, {
                 method: 'POST',
                 headers: {
                   'X-CSRFToken': csrftoken 
@@ -287,61 +243,7 @@
             }
           {% endfor %}
         });
-      });      
-
-      ivrSelect.addEventListener("change", function() {
-        const selectedValue = ivrSelect.value;
-        campaignIvrMenuSelect.value = selectedValue;
-        saveButton.style.display = 'inline-block';
-      });
-
-      sipGatewaySelect.addEventListener("change", function() {
-        const selectedValue = sipGatewaySelect.value;
-        campaignSipGatewaySelect.value = selectedValue;
-        saveButton.style.display = 'inline-block';
-      });
-
-      concurrentCallsInput.addEventListener("input", function() {
-        const concurrentValue = concurrentCallsInput.value;
-        campaignConcurrentCallsInput.value = concurrentValue;
-        saveButton.style.display = 'inline-block';
-      });
-
-      appendPhoneToPhoneList = function(lead,list) {
-        const li = document.createElement("li");
-        li.className = "list-group-item d-flex justify-content-between";
-
-        const phoneSpan = document.createElement("span");
-        phoneSpan.textContent = lead.phone_number;
-
-        const statusSpan = document.createElement("span");
-        statusSpan.textContent = lead.status || "N/A";
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.className = "btn btn-sm btn-outline-danger";
-        deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
-
-        deleteBtn.addEventListener("click", () => { 
-          deletedNumbers.push(lead.phone_number);
-          deletedNumbersInput.value = JSON.stringify(deletedNumbers);   
-          newNumbers.forEach((number, index) => {
-            if (number === lead.phone_number) {
-              newNumbers.splice(index, 1);
-              newNumbersInput.value = JSON.stringify(newNumbers);
-            }
-          });       
-          li.remove();
-          saveButton.style.display = 'block';
-        });
-
-        li.appendChild(phoneSpan);
-        li.appendChild(statusSpan);
-        li.appendChild(deleteBtn);
-        list.appendChild(li);
-      };
-
-    </script>
-    <!-- Bootstrap JS (optional, for some components) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+      });            
+    </script>  
   </body>
 </html>
