@@ -3,8 +3,6 @@ const addButton = document.getElementById('addButton');
 const phoneList = document.getElementById('phoneList');
 const newNumbersInput = document.getElementById('newNumbersInput');
 const deletedNumbersInput = document.getElementById('deletedNumbersInput');
-const campaignUuidInput = document.getElementById('campaignUuidInput');      
-const dialerForm = document.getElementById('dialerForm');
 const deleteButton = document.getElementById('deleteButton');
 const campaignCheckboxes = document.querySelectorAll('.campaign-checkbox');
 const saveButton = document.getElementById('saveButton');
@@ -14,29 +12,34 @@ const settingsSection = document.getElementById("settingsSection");
 const statusSection = document.getElementById("statusSection");
 const campaignIvrMenuSelect = document.getElementById('campaignIvrMenuSelect');
 const campaignSipGatewaySelect = document.getElementById('campaignSipGatewaySelect');
-const campaignUuidInputStart = document.getElementById('campaignUuidInputStart');
 const concurrentCallsInput = document.getElementById('concurrentCallsInput');
-const campaignStatusP = document.getElementById('campaignStatusP');
 const settingsButton = document.getElementById('settingsButton');
-const settingsModal = new bootstrap.Modal(document.getElementById("settingsModal"));
+const settingsModal = document.getElementById("settingsModal");
+const settingsForm = document.getElementById("settingsForm");
+const settingsModalBootstrap = new bootstrap.Modal(settingsModal);
 const actionSettingsForm = document.getElementById('actionSettingsForm');
 const platformSelect = document.getElementById("platformSelect");
 const dbUserInput = document.getElementById("dbUserInput");
 const dbPasswordInput = document.getElementById("dbPasswordInput");
 const dbHostInput = document.getElementById("dbHostInput");
 const dbPortInput = document.getElementById("dbPortInput");
-const PAGE_SIZE = 10;
-let currentPage = 1;
+const eslConfig = document.getElementById("eslConfig");
+const eslIp = document.getElementById("eslIp");
+const eslPort = document.getElementById("eslPort");
+const eslSecret = document.getElementById("eslSecret");
 let leadsInCampaign = [];
 let newNumbers = [];
-let selectedCampaignUuid = "";
 let deletedNumbers = [];
 
 actionSettingsForm.value = "d4dialer_settings_save";
 
+settingsForm.addEventListener('submit', function(event){
+    console.log("submit");
+});
+
 settingsButton.addEventListener('click', function(){
     platformSelect.value = voipPlatform;
-    settingsModal.show();
+    settingsModalBootstrap.show();
 
     const csrftoken = document.getElementById("csrf-token").value;
     const formData = new FormData(); 
@@ -61,6 +64,15 @@ settingsButton.addEventListener('click', function(){
         dbPasswordInput.value = data.voip_platform_database.voip_platform_db_password;
         dbHostInput.value = data.voip_platform_database.voip_platform_db_host;
         dbPortInput.value = data.voip_platform_database.voip_platform_db_port;
+
+        if (platformSelect.value == 'fusionpbx' || platformSelect.value == 'freeswitch'){
+            eslConfig.style.display = "block";
+            eslIp.value = data.voip_platform_api.voip_platform_api_host;
+            eslPort.value = data.voip_platform_api.voip_platform_api_port;
+            eslSecret.value = data.voip_platform_api.voip_platform_api_password;
+        } else {
+            eslConfig.style.display = "none";
+        }
     })
     .catch(error => {
         console.error("Error fetching leads:", error);
@@ -71,7 +83,7 @@ platformSelect.addEventListener("change", function() {
     const csrftoken = document.getElementById("csrf-token").value;
     const formData = new FormData(); 
     formData.append("action", "d4dialer_settings_platform_config_default_query"); 
-    formData.append("voip_platform", platformSelect.value);
+    formData.append("voip_platform", platformSelect.value);    
 
     fetch(dialerUrl, {
     method: 'POST',
@@ -91,6 +103,15 @@ platformSelect.addEventListener("change", function() {
         dbPasswordInput.value = data.voip_platform_database.PASSWORD;
         dbHostInput.value = data.voip_platform_database.HOST;
         dbPortInput.value = data.voip_platform_database.PORT;
+
+        if (platformSelect.value == 'fusionpbx' || platformSelect.value == 'freeswitch'){
+            eslConfig.style.display = "block";
+            eslIp.value = data.voip_platform_api.IP;
+            eslPort.value = data.voip_platform_api.PORT;
+            eslSecret.value = data.voip_platform_api.SECRET;
+        } else {
+            eslConfig.style.display = "none";
+        }
     })
     .catch(error => {
         console.error("Error fetching leads:", error);
@@ -101,7 +122,7 @@ document.getElementById('d4dialerTitle').addEventListener('click', function() {
     window.location.href = dialerUrl;
 });   
 
-if (dbConnection){
+if (dbConnection && apiConnection){
     saveButton.style.display = 'none';
     deleteButton.style.display = 'none';
     settingsSection.style.display = 'none';
@@ -172,7 +193,6 @@ if (dbConnection){
             settingsSection.style.display = 'block';
             saveButton.style.display = 'block';
 
-            const phoneList = document.getElementById("phoneList");
             phoneList.innerHTML = "";
             newNumbers.forEach(number => {
             appendPhoneToPhoneList({phone_number: number}, phoneList);
@@ -241,6 +261,10 @@ if (dbConnection){
         li.appendChild(deleteBtn);
         list.appendChild(li);
     };
+} else if (!dbConnection) {
+console.log("No DB connection");  
+} else if(!apiConnection) {
+    console.log("No API connection");  
 } else {
-   console.log("No DB connection!"); 
+console.log("Internal Error"); 
 }

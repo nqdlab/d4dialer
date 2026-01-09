@@ -9,6 +9,10 @@ class D4Settings(models.Model):
     voip_platform_db_password = models.CharField(max_length=255, null=True, blank=True)
     voip_platform_db_host = models.CharField(max_length=255, null=True, blank=True)
     voip_platform_db_port = models.CharField(max_length=255, null=True, blank=True)
+    voip_platform_api_user = models.CharField(max_length=255, null=True, blank=True)
+    voip_platform_api_password = models.CharField(max_length=255, null=True, blank=True)
+    voip_platform_api_host = models.CharField(max_length=255, null=True, blank=True)
+    voip_platform_api_port = models.CharField(max_length=255, null=True, blank=True)
     def __str__(self):
         return self.voip_platform
 

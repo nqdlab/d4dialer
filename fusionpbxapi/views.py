@@ -1,11 +1,16 @@
 from django.shortcuts import render
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db import connections
 from freeswitchESL import ESL
-from dialer import dbhandler
+from dialer import dbhandler, const
 
 class FusionpbxApiHandler(APIView):
+	def get_esl_connection(host=const.FUSIONPBX_ESL["IP"], port=const.FUSIONPBX_ESL["PORT"], password=const.FUSIONPBX_ESL["SECRET"]):
+		esl_conn = ESL.ESLconnection(host, port, password)
+		return esl_conn
+
 	def post(self, request):
 		try:
 			data = request.data
@@ -53,7 +58,7 @@ class FusionpbxApiHandler(APIView):
 
 				cmd = f"originate {{ignore_early_media=true}}{endpoint_url} {destination_url}"
 
-				esl_conn = ESL.ESLconnection("127.0.0.1", "8021", "ClueCon")
+				esl_conn = FusionpbxApiHandler.get_esl_connection()				
 				if not esl_conn.connected():
 					return Response({"reason": "FAILED"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 				response = esl_conn.bgapi(cmd)

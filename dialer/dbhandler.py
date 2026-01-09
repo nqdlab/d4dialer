@@ -1,6 +1,9 @@
 from django.db import connections
 from .models import Campaign, CampaignLead, D4Settings
-from django.db.utils import OperationalError, ConnectionDoesNotExist
+from psycopg2 import OperationalError
+import psycopg2 
+from psycopg2 import extensions
+from . import dbhandler
 
 #Django internal databases access functions
 def get_d4settings():
@@ -27,11 +30,34 @@ def update_d4settings_voip_platform_db_host(host):
 def update_d4settings_voip_platform_db_port(port):
     D4Settings.objects.all().update(voip_platform_db_port=port)
 
-def check_db_connection(custom_db):
+def update_d4settings_voip_platform_api_user(user):
+    D4Settings.objects.all().update(voip_platform_api_user=user)
+
+def update_d4settings_voip_platform_api_password(password):
+    D4Settings.objects.all().update(voip_platform_api_password=password)
+
+def update_d4settings_voip_platform_api_host(host):
+    D4Settings.objects.all().update(voip_platform_api_host=host)
+
+def update_d4settings_voip_platform_api_port(port):
+    D4Settings.objects.all().update(voip_platform_api_port=port)
+
+def check_db_connection(voip_platform):
+    d4settings = dbhandler.get_d4settings()
     try:
-        connections[custom_db].ensure_connection()
-        return True
-    except (OperationalError, ConnectionDoesNotExist):
+        if voip_platform == 'fusionpbx':
+            with psycopg2.connect( 
+                dbname=d4settings.voip_platform_db_name, 
+                user=d4settings.voip_platform_db_user, 
+                password=d4settings.voip_platform_db_password, 
+                host=d4settings.voip_platform_db_host, 
+                port=d4settings.voip_platform_db_port 
+            ) as conn:
+                if conn.status == extensions.STATUS_READY:
+                    return True
+                else:
+                    return False                    
+    except (OperationalError):
         return False
 
 def get_campaigns():
@@ -92,10 +118,24 @@ def update_campaign_status(campaign_uuid, status):
 #FusionPBX database access functions
 
 def execute(cmd):
-    cursor = connections['fusionpbx'].cursor()
-    cursor.execute(cmd)
-    rows = cursor.fetchall()
-    return rows
+    d4settings = dbhandler.get_d4settings()
+    try:
+        if d4settings.voip_platform =='fusionpbx':
+            with psycopg2.connect( 
+                        dbname=d4settings.voip_platform_db_name, 
+                        user=d4settings.voip_platform_db_user, 
+                        password=d4settings.voip_platform_db_password, 
+                        host=d4settings.voip_platform_db_host, 
+                        port=d4settings.voip_platform_db_port 
+                    ) as conn:
+                cursor = conn.cursor()
+                cursor.execute(cmd)
+                rows = cursor.fetchall()
+                return rows
+        else:
+            return 
+    except (OperationalError):
+        return {}
 
 def get_ivr_menu_names():
     rows =  execute("select ivr_menu_name from v_ivr_menus;")

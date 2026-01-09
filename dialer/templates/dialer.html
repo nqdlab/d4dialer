@@ -58,11 +58,31 @@
                     <input type="text" id="dbPortInput" name="voip_platform_db_port" class="form-control" placeholder="port" />
                   </div>
                 </div>
-              </div>
+                <div id="eslConfig" style="display:none;">
+                  <div class="row mb-3">
+                    <label for="eslIp" class="col-sm-4 col-form-label">ESL IP</label>
+                    <div class="col-sm-8">
+                      <input type="text" id="eslIp" name="voip_platform_api_host" class="form-control" placeholder="IP" />
+                    </div>
+                  </div>
+                  <div class="row mb-3">
+                    <label for="eslPort" class="col-sm-4 col-form-label">ESL Port</label>
+                    <div class="col-sm-8">
+                      <input type="text" id="eslPort" name="voip_platform_api_port" class="form-control" placeholder="Port" />
+                    </div>
+                  </div>
+                  <div class="row mb-3">
+                    <label for="eslSecret" class="col-sm-4 col-form-label">ESL Secret</label>
+                    <div class="col-sm-8">
+                      <input type="text" id="eslSecret" name="voip_platform_api_password" class="form-control" placeholder="Secret" />
+                    </div>
+                  </div>
+                </div>
+              </div>              
               <div class="modal-footer"> 
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button> 
-                <button type="submit" class="btn btn-primary" data-bs-dismiss="modal">Save</button> 
-              </div> 
+                <button type="submit" class="btn btn-primary">Save</button> 
+              </div>                              
             </form>
           </div> 
         </div> 
@@ -73,7 +93,7 @@
         <button id="settingsButton" class="btn btn-secondary"> <i class="bi bi-gear"></i> </button> 
       </div>
 
-      {% if db_connection %}
+      {% if db_connection and api_connection %}
         <div class="row mb-3 align-items-center">        
           <div class="col-md-6 d-flex justify-content-end">
             <form id="dialerForm" method="post" action="{% url 'dialer' %}" class="d-flex align-items-center m-0">
@@ -162,18 +182,25 @@
             </form>         
           </div>
         </div>
+      {% elif not db_connection %}
+        <p>No DB Connection</p>
+      {% elif not api_connection %}
+        <p>No API Connection</p>
       {% else %}
-        <p>No DB Connection!</p>
+        <p>Internal Error</p>
       {% endif %}   
     </div>
 
     <script>
+      //db_connection can be True or False
       const dbConnection = {{ db_connection|yesno:"true,false" }};
+      //api_connection can be 0 or 1
+      const apiConnection = Boolean({{ api_connection }});
       const dialerUrl = "{% url 'dialer' %}";
       const voipPlatform = "{{voip_platform}}";
     </script> 
     <script src="{% static 'dialer.js' %}"></script>    
-    <script>                                   
+    <script>                                     
       document.querySelectorAll('.campaign-item').forEach(item => {
         item.addEventListener('click', function() {
           const campaignId = this.getAttribute('data-campaign-id');
